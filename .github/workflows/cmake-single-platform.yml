@@ -1,0 +1,67 @@
+name: Build OBS GameDetector (Windows)
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+env:
+  BUILD_TYPE: Release
+  QT_VERSION: 6.5.1
+  QT_MODULES: "qtbase qtwidgets"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    # Instalar Qt 6.5.1 (MSVC 2019 64-bit)
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        arch: win64_msvc2019_64
+        modules: ${{ env.QT_MODULES }}
+
+    # Baixar OBS SDK 31.1.1
+    - name: Download OBS SDK
+      run: |
+        curl -L -o obs-sdk.zip https://github.com/obsproject/obs-studio/releases/download/31.1.1/obs-sdk-31.1.1.zip
+        powershell -command "Expand-Archive obs-sdk.zip -DestinationPath obs-sdk"
+
+    - name: Set OBS SDK path
+      run: echo "OBS_PATH=$PWD/obs-sdk" >> $env:GITHUB_ENV
+
+    # Instalar Inno Setup
+    - name: Install Inno Setup
+      run: |
+        curl -L -o innosetup.exe https://files.jrsoftware.org/is/6/innosetup-6.3.3.exe
+        .\innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+
+    # Configurar CMake
+    - name: Configure CMake
+      run: cmake -B build `
+        -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} `
+        -DOBS_PATH="${{ env.OBS_PATH }}"
+
+    # Compilar plugin
+    - name: Build
+      run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+    # Upload do ZIP gerado pelo build
+    - name: Upload ZIP artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: OBSGameDetector-Zip
+        path: setup/OBSGameDetector.zip
+
+    # Upload do instalador .exe criado pelo Inno Setup
+    - name: Upload installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: OBSGameDetector-Installer
+        path: setup/OBSGameDetector-Setup.exe
