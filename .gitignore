@@ -14,7 +14,7 @@
 !CMakeLists.txt
 !CMakePresets.json
 !LICENSE
-!README.md
+!README*.md
 !setup.iss
 
 # Exclude lock files
