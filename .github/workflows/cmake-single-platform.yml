@@ -20,12 +20,10 @@ jobs:
       uses: actions/checkout@v4
 
     # Instalar Qt 6.5.1 (MSVC 2019 64-bit)
-    - name: Install Qt
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: ${{ env.QT_VERSION }}
-        arch: win64_msvc2019_64
-        modules: ${{ env.QT_MODULES }}
+    - name: Install Qt 6.5.1
+      run: |
+        python -m pip install aqtinstall
+        python -m aqt install-qt windows desktop 6.5.1 win64_msvc2019_64 --outputdir Qt
 
     # Baixar OBS SDK 31.1.1
     - name: Download OBS SDK
