@@ -138,27 +138,38 @@ void GameDetectorSettingsDialog::loadSettings()
 	clientIdInput->setText(ConfigManager::get().getClientId());
 	tokenInput->setText(ConfigManager::get().getToken());
 
+	bool settingsChanged = false;
 	obs_data_array_t *gamesArray = ConfigManager::get().getManualGames();
 	if (gamesArray) {
 		manualGamesTable->setRowCount(0);
 		size_t count = obs_data_array_count(gamesArray);
-		for (size_t i = 0; i < count; ++i) {
+		for (int i = (int)count - 1; i >= 0; --i) {
 			obs_data_t *item = obs_data_array_item(gamesArray, i);
 			QString gameName = obs_data_get_string(item, "name");
 			QString exeName  = obs_data_get_string(item, "exe");
 			QString exePath  = obs_data_get_string(item, "path");
 
-			int newRow = manualGamesTable->rowCount();
-			manualGamesTable->insertRow(newRow);
-			QTableWidgetItem *nameItem = new QTableWidgetItem(gameName);
+			if (QFileInfo::exists(exePath)) {
+				int newRow = 0; // Inserir no topo
+				manualGamesTable->insertRow(newRow);
+				QTableWidgetItem *nameItem = new QTableWidgetItem(gameName);
 
-			QIcon icon = IconProvider::getIconForFile(exePath);
-			nameItem->setIcon(icon.isNull() ? style()->standardIcon(QStyle::SP_DesktopIcon) : icon);
+				QIcon icon = IconProvider::getIconForFile(exePath);
+				nameItem->setIcon(icon.isNull() ? style()->standardIcon(QStyle::SP_DesktopIcon) : icon);
 
-			manualGamesTable->setItem(newRow, 0, nameItem);
-			manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
-			manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(exePath));
+				manualGamesTable->setItem(newRow, 0, nameItem);
+				manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
+				manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(exePath));
+			} else {
+				obs_data_array_erase(gamesArray, i);
+				settingsChanged = true;
+			}
 			obs_data_release(item);
+		}
+		if (settingsChanged) {
+			obs_data_t *settings = ConfigManager::get().getSettings();
+			obs_data_set_array(settings, "manual_games_list", gamesArray);
+			ConfigManager::get().save(settings);
 		}
 		obs_data_array_release(gamesArray);
 	}
