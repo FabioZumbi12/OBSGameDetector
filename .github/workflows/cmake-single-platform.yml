@@ -25,11 +25,6 @@ jobs:
         curl -L -o innosetup.exe https://files.jrsoftware.org/is/6/innosetup-6.6.0.exe
         .\innosetup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
-    # Adicionar Inno Setup ao PATH
-    - name: Add Inno Setup to PATH
-      run: |
-        echo "C:\Program Files (x86)\Inno Setup 6" >> $Env:GITHUB_PATH
-    
     # Configurar CMake
     - name: Configure CMake
       run: cmake -B build `
@@ -43,7 +38,7 @@ jobs:
     - name: Upload ZIP artifact
       uses: actions/upload-artifact@v4
       with:
-        name: OBSGameDetector-Zip
+        name: OBSGameDetector
         path: setup/OBSGameDetector.zip
 
     # Upload do instalador .exe criado pelo Inno Setup
