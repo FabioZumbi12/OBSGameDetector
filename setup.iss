@@ -3,27 +3,27 @@
 
 [Setup]
 ; --- Informações Básicas do Aplicativo ---
-AppName=OBS Game Detector
+AppName=Game Detector OBS Plugin
 AppVersion=1.0.0
 AppPublisher=FabioZumbi12
-AppPublisherURL=https://github.com/FabioZumbi12/OBSGameDetector
-AppSupportURL=https://github.com/FabioZumbi12/OBSGameDetector/issues
-AppUpdatesURL=https://github.com/FabioZumbi12/OBSGameDetector/releases
+AppPublisherURL=https://github.com/FabioZumbi12/GameDetector
+AppSupportURL=https://github.com/FabioZumbi12/GameDetector/issues
+AppUpdatesURL=https://github.com/FabioZumbi12/GameDetector/releases
 
 ; --- Opções do Instalador ---
 ; DefaultDirName será sobrescrito pela seção [Code] para o caminho do OBS Studio.
 DefaultDirName={autopf}\obs-studio
 ; O nome do executável final do setup.
 OutputDir=setup
-OutputBaseFilename=OBSGameDetector-Setup
+OutputBaseFilename=GameDetector-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ; Privilégios de administrador são necessários para escrever na pasta 'Arquivos de Programas'.
 PrivilegesRequired=admin
 DirExistsWarning=no
-UninstallFilesDir={app}\OBSGameDetector-Uninstaller
-UninstallDisplayName=OBS Game Detector
+UninstallFilesDir={app}\GameDetector-Uninstaller
+UninstallDisplayName=Game Detector
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -31,10 +31,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 ; Copia a DLL do plugin para a pasta de plugins do OBS.
-Source: "setup\obs-plugins\64bit\obs-game-detector.dll"; DestDir: "{app}\obs-plugins\64bit\"; Flags: ignoreversion
+Source: "setup\obs-plugins\64bit\game-detector.dll"; DestDir: "{app}\obs-plugins\64bit\"; Flags: ignoreversion
 
 ; Copia a pasta 'data' do plugin para a pasta de dados do OBS.
-Source: "setup\data\obs-plugins\obs-game-detector\*"; DestDir: "{app}\data\obs-plugins\obs-game-detector\"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "setup\data\obs-plugins\game-detector\*"; DestDir: "{app}\data\obs-plugins\game-detector\"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Run]
 ; Opcional: Oferece a opção de abrir o OBS Studio após a instalação.
@@ -42,8 +42,8 @@ Filename: "{app}\bin\64bit\obs64.exe"; Description: "Iniciar OBS Studio agora"; 
 
 [UninstallDelete]
 ; Garante que todos os arquivos e pastas sejam removidos na desinstalação.
-Type: files; Name: "{app}\obs-plugins\64bit\obs-game-detector.dll"
-Type: filesandordirs; Name: "{app}\data\obs-plugins\obs-game-detector"
+Type: files; Name: "{app}\obs-plugins\64bit\game-detector.dll"
+Type: filesandordirs; Name: "{app}\data\obs-plugins\game-detector"
 
 [Code]
 var
@@ -78,7 +78,7 @@ var
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    TargetDir := ExpandConstant('{userappdata}\obs-studio\plugin_config\obs-game-detector');
+    TargetDir := ExpandConstant('{userappdata}\obs-studio\plugin_config\game-detector');
 
     if DirExists(TargetDir) then
     begin

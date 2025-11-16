@@ -12,7 +12,7 @@ cmake_minimum_required(VERSION 3.28...3.30)
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
 
-project(OBSGameDetector VERSION 1.0.0)
+project(GameDetector VERSION 1.0.0)
 
 option(ENABLE_FRONTEND_API "Use obs-frontend-api for UI functionality" ON)
 option(ENABLE_QT "Use Qt functionality" ON)
@@ -30,20 +30,20 @@ target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 # Caminhos do diretorio de saida personalizado
 set(SETUP_ROOT "${CMAKE_SOURCE_DIR}/setup")
 set(SETUP_PLUGINS_DIR "${SETUP_ROOT}/obs-plugins/64bit")
-set(SETUP_DATA_DIR "${SETUP_ROOT}/data/obs-plugins/obs-game-detector")
+set(SETUP_DATA_DIR "${SETUP_ROOT}/data/obs-plugins/game-detector")
 
 # Certifique-se de que os diretorios existem
 file(MAKE_DIRECTORY "${SETUP_PLUGINS_DIR}")
 file(MAKE_DIRECTORY "${SETUP_DATA_DIR}")
 
 # Caminho de saida do ZIP
-set(SETUP_ZIP "${CMAKE_SOURCE_DIR}/setup/OBSGameDetector.zip")
+set(SETUP_ZIP "${CMAKE_SOURCE_DIR}/setup/GameDetector.zip")
 
-add_custom_command(TARGET OBSGameDetector POST_BUILD
+add_custom_command(TARGET GameDetector POST_BUILD
     # Copiar DLL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:OBSGameDetector>
-        "${SETUP_PLUGINS_DIR}/$<TARGET_FILE_NAME:OBSGameDetector>"
+        $<TARGET_FILE:GameDetector>
+        "${SETUP_PLUGINS_DIR}/$<TARGET_FILE_NAME:GameDetector>"
 
     # Copiar pasta data
     COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -66,7 +66,7 @@ set(INNO_SETUP_COMPILER "C:/Program Files (x86)/Inno Setup 6/ISCC.exe")
 
 # Criar o instalador com Inno Setup (opcional)
 if(ENABLE_INNO_SETUP)
-    add_custom_command(TARGET OBSGameDetector POST_BUILD
+    add_custom_command(TARGET GameDetector POST_BUILD
 
         COMMAND ${CMAKE_COMMAND} -E echo "Executando Inno Setup..."
 
@@ -76,7 +76,7 @@ if(ENABLE_INNO_SETUP)
         # Agora o script está no root do projeto
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 
-        COMMENT "Criando instalador OBSGameDetector-Setup.exe (opcional)..."
+        COMMENT "Criando instalador GameDetector-Setup.exe (opcional)..."
     )
 else()
     message(STATUS "Inno Setup desabilitado ou não encontrado. Ignorando criação do instalador.")
@@ -116,4 +116,4 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     "src/TwitchChatBot.cpp"
     )
 
-set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME "obs-game-detector")
+set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME "game-detector")

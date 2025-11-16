@@ -42,14 +42,14 @@ GameDetector::GameDetector(QObject *parent) : QObject(parent)
 
 void GameDetector::startScanning()
 {
-	blog(LOG_INFO, "[OBSGameDetector] Iniciando detecção via escaneamento de processos.");
+	blog(LOG_INFO, "[GameDetector] Iniciando detecção via escaneamento de processos.");
 	startProcessMonitoring();
 }
 
 void GameDetector::startProcessMonitoring()
 {
 	if (!scanTimer->isActive()) {
-		blog(LOG_INFO, "[OBSGameDetector] Iniciando monitoramento de processos.");
+		blog(LOG_INFO, "[GameDetector] Iniciando monitoramento de processos.");
 		scanTimer->start(5000); // Verifica a cada 5 segundos
 	}
 }
@@ -57,18 +57,18 @@ void GameDetector::startProcessMonitoring()
 void GameDetector::rescanForGames()
 {
 	if (gameDbWatcher->isRunning()) {
-		blog(LOG_INFO, "[OBSGameDetector] Varredura de jogos já está em andamento.");
+		blog(LOG_INFO, "[GameDetector] Varredura de jogos já está em andamento.");
 		return;
 	}
 	// Executa a busca por jogos em uma thread separada para não bloquear a UI do OBS
-	blog(LOG_INFO, "[OBSGameDetector] Iniciando varredura de jogos em segundo plano...");
+	blog(LOG_INFO, "[GameDetector] Iniciando varredura de jogos em segundo plano...");
 	QFuture<QList<std::tuple<QString, QString, QString>>> future = QtConcurrent::run([this]() { return populateGameExecutables(); });
 	gameDbWatcher->setFuture(future);
 }
 
 void GameDetector::onGameScanFinished()
 {
-	blog(LOG_INFO, "[OBSGameDetector] Varredura de jogos concluída. Iniciando monitoramento de processos.");
+	blog(LOG_INFO, "[GameDetector] Varredura de jogos concluída. Iniciando monitoramento de processos.");
 
 	// Emite o sinal com os jogos encontrados para a UI
 	emit automaticScanFinished(gameDbWatcher->result());
@@ -93,7 +93,7 @@ void GameDetector::onSettingsChanged()
 void GameDetector::stopScanning()
 {
 	if (scanTimer->isActive()) {
-		blog(LOG_INFO, "[OBSGameDetector] Parando escaneamento de processos.");
+		blog(LOG_INFO, "[GameDetector] Parando escaneamento de processos.");
 		scanTimer->stop();
 	}
 }
@@ -343,7 +343,7 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 
 #endif
 
-	blog(LOG_INFO, "[OBSGameDetector] Varredura terminou. %d jogos encontrados.", foundGames.size());
+	blog(LOG_INFO, "[GameDetector] Varredura terminou. %d jogos encontrados.", foundGames.size());
 	return foundGames;
 }
 
@@ -382,7 +382,7 @@ void GameDetector::loadGamesFromConfig()
 	obs_data_array_t *manualGames = ConfigManager::get().getManualGames();
 	if (manualGames) {
 		size_t count = obs_data_array_count(manualGames);
-		blog(LOG_INFO, "[OBSGameDetector] Carregando %d jogos da lista manual.", count);
+		blog(LOG_INFO, "[GameDetector] Carregando %d jogos da lista manual.", count);
 		for (size_t i = 0; i < count; ++i) {
 			obs_data_t *item = obs_data_array_item(manualGames, i);
 			QString exeName = obs_data_get_string(item, "exe");
@@ -430,7 +430,7 @@ void GameDetector::scanProcesses()
 							// Se é um jogo diferente do que já estava rodando, emite o sinal
 							if (processName != currentGameProcess) {
 								currentGameProcess = processName;
-								blog(LOG_INFO, "[OBSGameDetector] Jogo detectado: %s (Processo: %s)", friendlyName.toStdString().c_str(), processName.toStdString().c_str());
+								blog(LOG_INFO, "[GameDetector] Jogo detectado: %s (Processo: %s)", friendlyName.toStdString().c_str(), processName.toStdString().c_str());
 								emit gameDetected(friendlyName, processName);
 							}
 							gameFoundThisScan = true;
