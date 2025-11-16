@@ -57,17 +57,18 @@ add_custom_command(TARGET OBSGameDetector POST_BUILD
     COMMENT "Empacotando arquivos do plugin..."
 )
 
+# https://files.jrsoftware.org/is/6/innosetup-6.6.0.exe
 # Encontra o compilador do Inno Setup (opcional)
-find_program(INNO_SETUP_COMPILER iscc)
+set(INNO_SETUP_COMPILER "C:/Program Files (x86)/Inno Setup 6/ISCC.exe")
 
 # Criar o instalador com Inno Setup (opcional)
-if(ENABLE_INNO_SETUP AND INNO_SETUP_COMPILER)
+if(ENABLE_INNO_SETUP)
     add_custom_command(TARGET OBSGameDetector POST_BUILD
 
         COMMAND ${CMAKE_COMMAND} -E echo "Executando Inno Setup..."
 
         # Executa sem interromper o build caso o iscc falhe
-        COMMAND cmd /C "\"${INNO_SETUP_COMPILER}\" \"${CMAKE_SOURCE_DIR}/setup.iss\" || exit /B 0"
+        COMMAND "${INNO_SETUP_COMPILER}" "${CMAKE_SOURCE_DIR}/setup.iss"
 
         # Agora o script está no root do projeto
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
