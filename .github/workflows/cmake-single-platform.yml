@@ -6,7 +6,7 @@ permissions:
 on:
   push:
     tags:
-      - "v*"      # exemplo: v1.0.0
+      - "v*"
       
 env:
   BUILD_TYPE: Release
