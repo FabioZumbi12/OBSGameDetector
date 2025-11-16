@@ -24,7 +24,7 @@ O foco é velocidade, detecção precisa e zero impacto no desempenho.
 Após baixar o instalador ou o arquivo ZIP:
 
 ### **Instalação pelo instalador (recomendado)**
-1. Baixe o arquivo **OBSGameDetector-Setup.exe** da página de [Releases](releases).
+1. Baixe o arquivo **OBSGameDetector-Setup.exe** da página de [Releases](../../releases).
 2. Execute o instalador.
 3. Abra o OBS e confirme que o plugin aparece no menu **Ferramentas → OBS GameDetector**.
 
