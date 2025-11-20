@@ -18,7 +18,7 @@
 #include <QFormLayout>
 #include <obs-data.h>
 
-const QUrl TOKEN_GENERATOR_URL("https://twitchtokengenerator.com/quick/S2xsq6rhwz");
+const QUrl TOKEN_GENERATOR_URL("https://twitchtokengenerator.com/quick/KVw1MCvQBL");
 
 GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialog(parent)
 {

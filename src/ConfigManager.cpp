@@ -48,6 +48,10 @@ void ConfigManager::load()
 		if (!obs_data_has_user_value(settings, EXECUTE_AUTOMATICALLY_KEY)) {
 			obs_data_set_bool(settings, EXECUTE_AUTOMATICALLY_KEY, false);
 		}
+		// Garante que a chave de modo de ação da Twitch exista
+		if (!obs_data_has_user_value(settings, TWITCH_ACTION_MODE_KEY)) {
+			obs_data_set_int(settings, TWITCH_ACTION_MODE_KEY, 0); // 0: Comando, 1: API
+		}
 	}
 }
 
@@ -175,4 +179,12 @@ bool ConfigManager::getExecuteAutomatically() const
 		return false;
 
 	return obs_data_get_bool(settings, EXECUTE_AUTOMATICALLY_KEY);
+}
+
+int ConfigManager::getTwitchActionMode() const
+{
+	if (!settings)
+		return 0;
+
+	return (int)obs_data_get_int(settings, TWITCH_ACTION_MODE_KEY);
 }

@@ -3,6 +3,7 @@
 #include "TwitchChatBot.h"
 #include <obs-data.h>
 #include "ConfigManager.h"
+#include <QComboBox>
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -33,6 +34,21 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 	separator1->setFrameShape(QFrame::HLine);
 	separator1->setFrameShadow(QFrame::Sunken);
 	mainLayout->addWidget(separator1);
+
+	// Layout para a ação da Twitch
+	QHBoxLayout *twitchActionLayout = new QHBoxLayout();
+	twitchActionLabel = new QLabel(obs_module_text("Dock.TwitchAction"));
+	twitchActionComboBox = new QComboBox();
+	twitchActionComboBox->addItem(obs_module_text("Dock.TwitchAction.SendCommand"), 0);
+	twitchActionComboBox->addItem(obs_module_text("Dock.TwitchAction.ChangeCategory"), 1);
+	twitchActionLayout->addWidget(twitchActionLabel);
+	twitchActionLayout->addWidget(twitchActionComboBox);
+	mainLayout->addLayout(twitchActionLayout);
+
+	connect(twitchActionComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int index) {
+		onSettingsChanged();
+		updateActionModeUI(index);
+	});
 
 	// Layout para o comando
 	QHBoxLayout *commandLayout = new QHBoxLayout();
@@ -72,6 +88,8 @@ GameDetectorDock::GameDetectorDock(QWidget *parent) : QWidget(parent)
 	// Conecta os sinais do detector de jogos aos nossos novos slots
 	connect(&GameDetector::get(), &GameDetector::gameDetected, this, &GameDetectorDock::onGameDetected);
 	connect(&GameDetector::get(), &GameDetector::noGameDetected, this, &GameDetectorDock::onNoGameDetected);
+	connect(&TwitchChatBot::get(), &TwitchChatBot::categoryUpdateFinished, this,
+		&GameDetectorDock::onCategoryUpdateFinished);
 
 	// Timer para salvar com delay
 	saveDelayTimer = new QTimer(this);
@@ -95,6 +113,7 @@ void GameDetectorDock::saveDockSettings()
 	obs_data_set_string(settings, "twitch_command_message", commandInput->text().toStdString().c_str());
 	obs_data_set_string(settings, "twitch_command_no_game", noGameCommandInput->text().toStdString().c_str());
 	obs_data_set_bool(settings, "execute_automatically", autoExecuteCheckbox->isChecked());
+	obs_data_set_int(settings, "twitch_action_mode", twitchActionComboBox->currentData().toInt());
 
 	ConfigManager::get().save(settings);
 
@@ -122,7 +141,12 @@ void GameDetectorDock::onGameDetected(const QString &gameName, const QString &pr
 
 	executeCommandButton->setEnabled(true);
 	if (autoExecuteCheckbox->isChecked()) {
-		executeGameCommand(gameName);
+		int actionMode = ConfigManager::get().getTwitchActionMode();
+		if (actionMode == 0) { // Enviar comando
+			executeGameCommand(gameName);
+		} else { // Alterar categoria
+			TwitchChatBot::get().updateCategory(gameName);
+		}
 	}
 }
 
@@ -135,8 +159,12 @@ void GameDetectorDock::onNoGameDetected()
 	// Executa o comando de "sem jogo"
 	QString noGameCommand = noGameCommandInput->text();
 	if (autoExecuteCheckbox->isChecked()) {
-		if (!noGameCommand.isEmpty()) {
+		int actionMode = ConfigManager::get().getTwitchActionMode();
+		if (actionMode == 0) { // Enviar comando
+			if (!noGameCommand.isEmpty())
 			TwitchChatBot::get().sendMessage(noGameCommand);
+		} else { // Alterar categoria
+			TwitchChatBot::get().updateCategory("Just Chatting");
 		}
 	} else {
 		executeCommandButton->setEnabled(true);
@@ -145,8 +173,19 @@ void GameDetectorDock::onNoGameDetected()
 
 void GameDetectorDock::onExecuteCommandClicked()
 {
-	if (!detectedGameName.isEmpty())
-		executeGameCommand(detectedGameName);
+	if (!detectedGameName.isEmpty()) {
+		int actionMode = ConfigManager::get().getTwitchActionMode();
+		if (actionMode == 0) { // Enviar comando
+			executeGameCommand(detectedGameName);
+		} else { // Alterar categoria
+			TwitchChatBot::get().updateCategory(detectedGameName);
+		}
+	} else {
+		int actionMode = ConfigManager::get().getTwitchActionMode();
+		if (actionMode == 1) { // Alterar categoria para "sem jogo"
+			TwitchChatBot::get().updateCategory("Just Chatting");
+		}
+	}
 }
 
 void GameDetectorDock::loadSettingsFromConfig()
@@ -155,14 +194,20 @@ void GameDetectorDock::loadSettingsFromConfig()
 	commandInput->blockSignals(true);
 	noGameCommandInput->blockSignals(true);
 	autoExecuteCheckbox->blockSignals(true);
+	twitchActionComboBox->blockSignals(true);
 
 	commandInput->setText(ConfigManager::get().getCommand());
 	noGameCommandInput->setText(ConfigManager::get().getNoGameCommand());
 	autoExecuteCheckbox->setChecked(ConfigManager::get().getExecuteAutomatically());
+	twitchActionComboBox->setCurrentIndex(ConfigManager::get().getTwitchActionMode());
 
 	commandInput->blockSignals(false);
 	noGameCommandInput->blockSignals(false);
 	autoExecuteCheckbox->blockSignals(false);
+	twitchActionComboBox->blockSignals(false);
+
+	// Garante que a UI reflita o estado inicial
+	updateActionModeUI(twitchActionComboBox->currentIndex());
 }
 
 void GameDetectorDock::executeGameCommand(const QString &gameName)
@@ -172,6 +217,36 @@ void GameDetectorDock::executeGameCommand(const QString &gameName)
 
 	QString command = commandTemplate.replace("{game}", gameName);
 	TwitchChatBot::get().sendMessage(command);
+}
+
+void GameDetectorDock::updateActionModeUI(int index)
+{
+	bool isApiMode = (index == 1);
+
+	commandLabel->setVisible(!isApiMode);
+	commandInput->setVisible(!isApiMode);
+	noGameCommandLabel->setVisible(!isApiMode);
+	noGameCommandInput->setVisible(!isApiMode);
+
+	// Altera o texto do botão de execução manual
+	executeCommandButton->setText(isApiMode ? obs_module_text("Dock.ExecuteAction")
+						: obs_module_text("Dock.ExecuteCommand"));
+}
+
+void GameDetectorDock::onCategoryUpdateFinished(bool success, const QString &gameName)
+{
+	if (success) {
+		QString statusText = QString(obs_module_text("Dock.CategoryUpdated")).arg(gameName);
+		g_statusLabel->setText(statusText);
+	} else {
+		QString statusText = QString(obs_module_text("Dock.CategoryUpdateFailed"));
+		g_statusLabel->setText(statusText);
+	}
+
+	// Retorna ao status normal após alguns segundos
+	QTimer::singleShot(3000, this, [this]() {
+		g_statusLabel->setText(this->detectedGameName.isEmpty() ? obs_module_text("Status.Waiting") : QString(obs_module_text("Status.Playing")).arg(this->detectedGameName));
+	});
 }
 
 GameDetectorDock::~GameDetectorDock()

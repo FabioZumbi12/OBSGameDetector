@@ -16,6 +16,7 @@ private:
 	static constexpr const char *MANUAL_GAMES_KEY = "manual_games_list";
 	static constexpr const char *COMMAND_NO_GAME_KEY = "twitch_command_no_game";
 	static constexpr const char *EXECUTE_AUTOMATICALLY_KEY = "execute_automatically";
+	static constexpr const char *TWITCH_ACTION_MODE_KEY = "twitch_action_mode";
 
 	obs_data_t *settings = nullptr;
 
@@ -38,6 +39,7 @@ public:
 	obs_data_array_t *getManualGames() const;
 	QString getNoGameCommand() const;
 	bool getExecuteAutomatically() const;
+	int getTwitchActionMode() const;
 };
 
 #endif // CONFIGMANAGER_H
