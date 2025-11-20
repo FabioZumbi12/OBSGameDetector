@@ -1,4 +1,4 @@
-#  OBS Game Detector - CMake Build Configuration
+ï»¿#  OBS Game Detector - CMake Build Configuration
 #  This CMake configuration file sets up the build process for the OBS Game Detector plugin.
 #  It includes options for enabling the obs-frontend-api and Qt functionalities,
 #  and specifies custom output directories for the built plugin and its associated data.
@@ -27,30 +27,28 @@ add_library(${CMAKE_PROJECT_NAME} MODULE)
 find_package(libobs REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 
-# Caminhos do diretorio de saida personalizado
+find_package(CURL REQUIRED)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE CURL::libcurl)
+
 set(SETUP_ROOT "${CMAKE_SOURCE_DIR}/setup")
 set(SETUP_PLUGINS_DIR "${SETUP_ROOT}/obs-plugins/64bit")
 set(SETUP_DATA_DIR "${SETUP_ROOT}/data/obs-plugins/game-detector")
 
-# Certifique-se de que os diretorios existem
 file(MAKE_DIRECTORY "${SETUP_PLUGINS_DIR}")
 file(MAKE_DIRECTORY "${SETUP_DATA_DIR}")
 
-# Caminho de saida do ZIP
 set(SETUP_ZIP "${CMAKE_SOURCE_DIR}/setup/GameDetector.zip")
 
 add_custom_command(TARGET GameDetector POST_BUILD
-    # Copiar DLL
+
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:GameDetector>
         "${SETUP_PLUGINS_DIR}/$<TARGET_FILE_NAME:GameDetector>"
 
-    # Copiar pasta data
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/data"
         "${SETUP_DATA_DIR}"
 
-    # Criar ZIP corretamente
     COMMAND ${CMAKE_COMMAND} -E tar cfv "${SETUP_ZIP}" --format=zip
         "obs-plugins"
         "data"
@@ -64,22 +62,15 @@ add_custom_command(TARGET GameDetector POST_BUILD
 # Encontra o compilador do Inno Setup (opcional)
 set(INNO_SETUP_COMPILER "C:/Program Files (x86)/Inno Setup 6/ISCC.exe")
 
-# Criar o instalador com Inno Setup (opcional)
 if(ENABLE_INNO_SETUP)
-    add_custom_command(TARGET GameDetector POST_BUILD
-
+        add_custom_command(TARGET GameDetector POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E echo "Executando Inno Setup..."
-
-        # Executa sem interromper o build caso o iscc falhe
         COMMAND "${INNO_SETUP_COMPILER}" "${CMAKE_SOURCE_DIR}/setup.iss"
-
-        # Agora o script está no root do projeto
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-
         COMMENT "Criando instalador GameDetector-Setup.exe (opcional)..."
     )
 else()
-    message(STATUS "Inno Setup desabilitado ou não encontrado. Ignorando criação do instalador.")
+    message(STATUS "Inno Setup desabilitado ou nao encontrado. Ignorando criacao do instalador.")
 endif()
 
 if(ENABLE_FRONTEND_API)
@@ -110,10 +101,12 @@ endif()
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     "src/plugin-main.cpp"
     "src/GameDetectorDock.cpp"
-    "src/ConfigManager.cpp" "src/GameDetector.cpp"
+    "src/ConfigManager.cpp"
+    "src/GameDetector.cpp"
     "src/GameDetectorSettingsDialog.cpp"
     "src/IconProvider.cpp"
     "src/TwitchChatBot.cpp"
+    
     )
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME "game-detector")
