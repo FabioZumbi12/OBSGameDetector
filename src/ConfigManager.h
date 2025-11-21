@@ -19,6 +19,11 @@ private:
 	static constexpr const char *EXECUTE_AUTOMATICALLY_KEY = "execute_automatically";
 	static constexpr const char *TWITCH_ACTION_MODE_KEY = "twitch_action_mode";
 
+	// ---- CHAVES DE ESCANEAMENTO ----
+	static constexpr const char *SCAN_STEAM_KEY = "scan_steam";
+	static constexpr const char *SCAN_EPIC_KEY = "scan_epic";
+	static constexpr const char *SCAN_GOG_KEY = "scan_gog";
+
 	// ---- NOVA CHAVE ----
 	static constexpr const char *TWITCH_CHANNEL_LOGIN_KEY = "twitch_channel_login";
 
@@ -47,6 +52,9 @@ public:
 	bool getExecuteAutomatically() const;
 	int getTwitchActionMode() const;
 	QString getTwitchChannelLogin() const; // NOVO
+	bool getScanSteam() const;
+	bool getScanEpic() const;
+	bool getScanGog() const;
 
 	// ---- SETTERS ----
 	void setToken(const QString &value);

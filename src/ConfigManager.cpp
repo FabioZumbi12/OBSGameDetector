@@ -28,6 +28,9 @@ void ConfigManager::load()
 		obs_data_set_string(settings, COMMAND_NO_GAME_KEY, "!setgame just chatting");
 		obs_data_set_bool(settings, EXECUTE_AUTOMATICALLY_KEY, false);
 		obs_data_set_int(settings, TWITCH_ACTION_MODE_KEY, 0);
+		obs_data_set_bool(settings, SCAN_STEAM_KEY, true); // Padrão
+		obs_data_set_bool(settings, SCAN_EPIC_KEY, true);  // Padrão
+		obs_data_set_bool(settings, SCAN_GOG_KEY, true);   // Padrão
 		obs_data_set_string(settings, TWITCH_CHANNEL_LOGIN_KEY, "");
 
 		obs_data_array_t *empty_array = obs_data_array_create();
@@ -62,6 +65,15 @@ void ConfigManager::load()
 
 	if (!obs_data_has_user_value(settings, TWITCH_ACTION_MODE_KEY))
 		obs_data_set_int(settings, TWITCH_ACTION_MODE_KEY, 0);
+
+	if (!obs_data_has_user_value(settings, SCAN_STEAM_KEY))
+		obs_data_set_bool(settings, SCAN_STEAM_KEY, true);
+
+	if (!obs_data_has_user_value(settings, SCAN_EPIC_KEY))
+		obs_data_set_bool(settings, SCAN_EPIC_KEY, false);
+
+	if (!obs_data_has_user_value(settings, SCAN_GOG_KEY))
+		obs_data_set_bool(settings, SCAN_GOG_KEY, false);
 
 	if (!obs_data_has_user_value(settings, TWITCH_CHANNEL_LOGIN_KEY))
 		obs_data_set_string(settings, TWITCH_CHANNEL_LOGIN_KEY, "");
@@ -198,6 +210,27 @@ QString ConfigManager::getTwitchChannelLogin() const
 	if (!settings)
 		return "";
 	return QString::fromUtf8(obs_data_get_string(settings, TWITCH_CHANNEL_LOGIN_KEY));
+}
+
+bool ConfigManager::getScanSteam() const
+{
+	if (!settings)
+		return true;
+	return obs_data_get_bool(settings, SCAN_STEAM_KEY);
+}
+
+bool ConfigManager::getScanEpic() const
+{
+	if (!settings)
+		return false;
+	return obs_data_get_bool(settings, SCAN_EPIC_KEY);
+}
+
+bool ConfigManager::getScanGog() const
+{
+	if (!settings)
+		return false;
+	return obs_data_get_bool(settings, SCAN_GOG_KEY);
 }
 
 // -------------------------------------------------------------------

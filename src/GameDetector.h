@@ -20,6 +20,10 @@ private:
 	QSet<QString> knownGameExes;
 	bool isUsingSourceDetection;
 
+	bool tempScanSteam = true;
+	bool tempScanEpic = true;
+	bool tempScanGog = true;
+
 	explicit GameDetector(QObject *parent = nullptr);
 
 	// Funções para encontrar os jogos no sistema
@@ -37,7 +41,7 @@ public:
 	// Inicia e para o escaneamento de processos
 	void startScanning();
 	void startProcessMonitoring();
-	void rescanForGames();
+	void rescanForGames(bool scanSteam, bool scanEpic, bool scanGog);
 	void stopScanning();
 	void loadGamesFromConfig();
 	void onSettingsChanged();

@@ -17,12 +17,13 @@
 #include <QCheckBox>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <obs-data.h>
 
 GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialog(parent)
 {
 	setWindowTitle(obs_module_text("Settings.WindowTitle"));
-	setMinimumSize(600, 500);
+	setMinimumSize(800, 500);
 
 	QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
@@ -31,52 +32,61 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	headerLabel->setWordWrap(true);
 	mainLayout->addWidget(headerLabel);
 
-	QFrame *separator1 = new QFrame();
-	separator1->setFrameShape(QFrame::HLine);
-	separator1->setFrameShadow(QFrame::Sunken);
-	mainLayout->addWidget(separator1);
-
 	// --- Seção da Tabela de Jogos ---
-	mainLayout->addWidget(new QLabel(obs_module_text("Settings.GameList")));
+	QGroupBox *gamesGroup = new QGroupBox(obs_module_text("Settings.GameList"));
+	QVBoxLayout *gamesLayout = new QVBoxLayout();
 
 	manualGamesTable = new QTableWidget();
-	manualGamesTable->setColumnCount(3);
-	manualGamesTable->setHorizontalHeaderLabels(QStringList() << obs_module_text("Table.Header.Name") << obs_module_text("Table.Header.Executable") << "Caminho");
-	manualGamesTable->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+	manualGamesTable->setColumnCount(4);
+	manualGamesTable->setHorizontalHeaderLabels(QStringList() << obs_module_text("Table.Header.Name") << obs_module_text("Table.Header.Executable") << obs_module_text("Table.Header.Path") << obs_module_text("Table.Header.Actions"));
+	manualGamesTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
+	manualGamesTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
 	// Oculta a coluna de caminho, ela é apenas para uso interno
 	manualGamesTable->setColumnHidden(2, true);
-	mainLayout->addWidget(manualGamesTable);
-
+	manualGamesTable->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+	gamesLayout->addWidget(manualGamesTable);
+	
+	// Layout para os botões abaixo da tabela
 	QHBoxLayout *tableButtonsLayout = new QHBoxLayout();
 	addGameButton = new QPushButton(obs_module_text("Settings.AddGame"));
-	removeGameButton = new QPushButton(obs_module_text("Settings.RemoveGame"));
 	clearTableButton = new QPushButton(obs_module_text("Settings.ClearList"));
-	tableButtonsLayout->addWidget(addGameButton);
-	tableButtonsLayout->addWidget(removeGameButton);
-	tableButtonsLayout->addWidget(clearTableButton);
 	rescanButton = new QPushButton(obs_module_text("Settings.ScanGames"));
 	rescanButton->setProperty("baseText", rescanButton->text());
+	tableButtonsLayout->addWidget(addGameButton);
+	tableButtonsLayout->addWidget(clearTableButton);
 	tableButtonsLayout->addWidget(rescanButton);
 	tableButtonsLayout->addStretch(1);
-	mainLayout->addLayout(tableButtonsLayout);
+	gamesLayout->addLayout(tableButtonsLayout);
+
+	// --- Opções de Escaneamento ---
+	QHBoxLayout *scanOptionsLayout = new QHBoxLayout();
+	scanOptionsLayout->setContentsMargins(0, 5, 0, 5);
+	QLabel* scanLabel = new QLabel(obs_module_text("Settings.ScanFrom"));
+	scanOptionsLayout->addWidget(scanLabel);
+
+	scanSteamCheckbox = new QCheckBox("Steam");
+	scanEpicCheckbox = new QCheckBox("Epic Games");
+	scanGogCheckbox = new QCheckBox("GOG Galaxy");
+	scanOptionsLayout->addWidget(scanSteamCheckbox);
+	scanOptionsLayout->addWidget(scanEpicCheckbox);
+	scanOptionsLayout->addWidget(scanGogCheckbox);
+	scanOptionsLayout->addStretch(1);
+	gamesLayout->addLayout(scanOptionsLayout);
 
 	connect(&GameDetector::get(), &GameDetector::gameFoundDuringScan, this, [=](int totalFound) {
 		QString base = rescanButton->property("baseText").toString();
 		rescanButton->setText(QString("%1 (%2)").arg(base).arg(totalFound));
 	});
 
-	mainLayout->addWidget(new QLabel(obs_module_text("Settings.ScanGames.HelpText")));
-
-    QFrame *separator2 = new QFrame();
-	separator2->setFrameShape(QFrame::HLine);
-	separator2->setFrameShadow(QFrame::Sunken);
-	mainLayout->addWidget(separator2);
+	gamesGroup->setLayout(gamesLayout);
+	mainLayout->addWidget(gamesGroup);
 
 	// --- Seção do Token ---
-	mainLayout->addWidget(new QLabel(obs_module_text("Settings.TwitchConnection")));
+	QGroupBox *authGroup = new QGroupBox(obs_module_text("Settings.TwitchConnection"));
+	QVBoxLayout *authLayout = new QVBoxLayout();
 
 	authStatusLabel = new QLabel(obs_module_text("Auth.NotConnected"));
-	mainLayout->addWidget(authStatusLabel);
+	authLayout->addWidget(authStatusLabel);
 
 	QHBoxLayout *authButtonsLayout = new QHBoxLayout();
 	authButton = new QPushButton(obs_module_text("Auth.Connect"));
@@ -85,11 +95,14 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 	disconnectButton = new QPushButton(obs_module_text("Auth.Disconnect"));
 	authButtonsLayout->addWidget(disconnectButton);
 	authButtonsLayout->addStretch(1);
-	mainLayout->addLayout(authButtonsLayout);
+	authLayout->addLayout(authButtonsLayout);
 
 	QLabel *helpLabel = new QLabel(obs_module_text("Auth.HelpText"));
 	helpLabel->setWordWrap(true);
-	mainLayout->addWidget(helpLabel);
+	authLayout->addWidget(helpLabel);
+
+	authGroup->setLayout(authLayout);
+	mainLayout->addWidget(authGroup);
 
 	mainLayout->addStretch(1);
 	QLabel *developerLabel = new QLabel(
@@ -108,12 +121,14 @@ GameDetectorSettingsDialog::GameDetectorSettingsDialog(QWidget *parent) : QDialo
 
 	// --- Conexões ---
 	connect(addGameButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onAddGameClicked);
-	connect(removeGameButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onRemoveGameClicked);
 	connect(clearTableButton, &QPushButton::clicked, this, &GameDetectorSettingsDialog::onClearTableClicked);
 	connect(rescanButton, &QPushButton::clicked, this, [this]() {
+		bool scanSteam = scanSteamCheckbox->isChecked();
+		bool scanEpic = scanEpicCheckbox->isChecked();
+		bool scanGog = scanGogCheckbox->isChecked();
 		rescanButton->setEnabled(false);
 		rescanButton->setText(obs_module_text("Settings.Scanning"));
-		GameDetector::get().rescanForGames();
+		GameDetector::get().rescanForGames(scanSteam, scanEpic, scanGog);
 	});
 	connect(authButton, &QPushButton::clicked, &TwitchAuthManager::get(), &TwitchAuthManager::startAuthentication);
 
@@ -164,6 +179,39 @@ void GameDetectorSettingsDialog::loadSettings()
 				manualGamesTable->setItem(newRow, 0, nameItem);
 				manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
 				manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(exePath));
+
+				QPushButton *removeRowButton = new QPushButton();
+				removeRowButton->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
+				removeRowButton->setToolTip(obs_module_text("Settings.RemoveGame"));
+				removeRowButton->setCursor(Qt::PointingHandCursor);
+
+				// Cria um container para o botão preencher a célula
+				QWidget *containerWidget = new QWidget();
+
+				// Conecta o botão para remover a linha específica
+				connect(removeRowButton, &QPushButton::clicked, this, [this, containerWidget]() {
+					for (int i = 0; i < manualGamesTable->rowCount(); ++i) {
+						if (manualGamesTable->cellWidget(i, 3) == containerWidget) {
+							int rowToRemove = i;
+							manualGamesTable->removeRow(rowToRemove);
+
+							// Seleciona a linha anterior ou a primeira, se a removida era a primeira
+							int newRowCount = manualGamesTable->rowCount();
+							if (newRowCount > 0) {
+								int rowToSelect = (rowToRemove > 0) ? (rowToRemove - 1) : 0;
+								manualGamesTable->setCurrentCell(rowToSelect, 0);
+							}
+							break;
+						}
+					}
+				});
+
+				QHBoxLayout *buttonLayout = new QHBoxLayout(containerWidget);
+				buttonLayout->setContentsMargins(0, 0, 0, 0); // Remove margens
+				buttonLayout->addWidget(removeRowButton);
+				containerWidget->setLayout(buttonLayout);
+
+				manualGamesTable->setCellWidget(newRow, 3, containerWidget);
 			} else {
 				// O jogo não existe mais, remove da lista
 				obs_data_array_erase(gamesArray, i);
@@ -172,6 +220,10 @@ void GameDetectorSettingsDialog::loadSettings()
 		}
 		obs_data_array_release(gamesArray);
 	}
+
+	scanSteamCheckbox->setChecked(ConfigManager::get().getScanSteam());
+	scanEpicCheckbox->setChecked(ConfigManager::get().getScanEpic());
+	scanGogCheckbox->setChecked(ConfigManager::get().getScanGog());
 }
 
 void GameDetectorSettingsDialog::saveSettings()
@@ -188,6 +240,10 @@ void GameDetectorSettingsDialog::saveSettings()
 		obs_data_release(item);
 	}
 	obs_data_set_array(settings, "manual_games_list", gamesArray);
+	obs_data_set_bool(settings, "scan_steam", scanSteamCheckbox->isChecked());
+	obs_data_set_bool(settings, "scan_epic", scanEpicCheckbox->isChecked());
+	obs_data_set_bool(settings, "scan_gog", scanGogCheckbox->isChecked());
+
 	obs_data_array_release(gamesArray);
 
 	ConfigManager::get().save(settings);
@@ -227,14 +283,38 @@ void GameDetectorSettingsDialog::onAddGameClicked()
 	manualGamesTable->setItem(newRow, 0, nameItem);
 	manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
 	manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(filePath));
-}
 
-void GameDetectorSettingsDialog::onRemoveGameClicked()
-{
-	int currentRow = manualGamesTable->currentRow();
-	if (currentRow >= 0) {
-		manualGamesTable->removeRow(currentRow);
-	}
+	QPushButton *removeRowButton = new QPushButton();
+	removeRowButton->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
+	removeRowButton->setToolTip(obs_module_text("Settings.RemoveGame"));
+	removeRowButton->setCursor(Qt::PointingHandCursor);
+
+	// Cria um container para o botão preencher a célula
+	QWidget *containerWidget = new QWidget();
+
+	// Conecta o botão para remover a linha específica
+	connect(removeRowButton, &QPushButton::clicked, this, [this, containerWidget]() {
+		for (int i = 0; i < manualGamesTable->rowCount(); ++i) {
+			if (manualGamesTable->cellWidget(i, 3) == containerWidget) {				
+				int rowToRemove = i;
+				manualGamesTable->removeRow(rowToRemove);
+
+				// Seleciona a linha anterior ou a primeira, se a removida era a primeira
+				int newRowCount = manualGamesTable->rowCount();
+				if (newRowCount > 0) {
+					int rowToSelect = (rowToRemove > 0) ? (rowToRemove - 1) : 0;
+					manualGamesTable->setCurrentCell(rowToSelect, 0);
+				}
+				break;				
+			}
+		}
+	});
+
+	QHBoxLayout *buttonLayout = new QHBoxLayout(containerWidget);
+	buttonLayout->setContentsMargins(0, 0, 0, 0); // Remove margens
+	buttonLayout->addWidget(removeRowButton);
+	containerWidget->setLayout(buttonLayout);
+	manualGamesTable->setCellWidget(newRow, 3, containerWidget);
 }
 
 void GameDetectorSettingsDialog::onClearTableClicked()
@@ -269,14 +349,41 @@ void GameDetectorSettingsDialog::onAutomaticScanFinished(const QList<std::tuple<
 			manualGamesTable->setItem(newRow, 0, nameItem);
 			manualGamesTable->setItem(newRow, 1, new QTableWidgetItem(exeName));
 			manualGamesTable->setItem(newRow, 2, new QTableWidgetItem(exePath));
+
+			QPushButton *removeRowButton = new QPushButton();
+			removeRowButton->setIcon(style()->standardIcon(QStyle::SP_DialogCloseButton));
+			removeRowButton->setToolTip(obs_module_text("Settings.RemoveGame"));
+			removeRowButton->setCursor(Qt::PointingHandCursor);
+
+			// Cria um container para o botão preencher a célula
+			QWidget *containerWidget = new QWidget();
+
+			connect(removeRowButton, &QPushButton::clicked, this, [this, containerWidget]() {
+				for (int i = 0; i < manualGamesTable->rowCount(); ++i) {
+					if (manualGamesTable->cellWidget(i, 3) == containerWidget) {						
+						int rowToRemove = i;
+						manualGamesTable->removeRow(rowToRemove);
+
+						// Seleciona a linha anterior ou a primeira, se a removida era a primeira
+						int newRowCount = manualGamesTable->rowCount();
+						if (newRowCount > 0) {
+							int rowToSelect = (rowToRemove > 0) ? (rowToRemove - 1) : 0;
+							manualGamesTable->setCurrentCell(rowToSelect, 0);
+						}
+						break;						
+					}
+				}
+			});
+
+			QHBoxLayout *buttonLayout = new QHBoxLayout(containerWidget);
+			buttonLayout->setContentsMargins(0, 0, 0, 0); // Remove margens
+			buttonLayout->addWidget(removeRowButton);
+			containerWidget->setLayout(buttonLayout);
+			manualGamesTable->setCellWidget(newRow, 3, containerWidget);
 			existingExes.insert(exeName);
 		}
 	}
 	manualGamesTable->blockSignals(false);
-
-	if (itemsAdded) {
-		saveSettings(); // Salva as configurações para persistir os jogos adicionados
-	}
 
 	rescanButton->setEnabled(true);
 	rescanButton->setText(obs_module_text("Settings.ScanGames"));

@@ -22,6 +22,7 @@ private:
 	TwitchChatBot();
 	~TwitchChatBot();
 
+	QString lastSetCategoryName;
 	QFutureWatcher<QString> *categoryUpdateWatcher;
 	QFutureWatcher<bool> *chatMessageWatcher;
 

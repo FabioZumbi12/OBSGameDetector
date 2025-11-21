@@ -28,8 +28,10 @@ private:
 	// UI Elements
 	QTableWidget *manualGamesTable = nullptr;
 	QPushButton *addGameButton = nullptr;
-	QPushButton *removeGameButton = nullptr;
 	QPushButton *clearTableButton = nullptr;
+	QCheckBox *scanSteamCheckbox = nullptr;
+	QCheckBox *scanEpicCheckbox = nullptr;
+	QCheckBox *scanGogCheckbox = nullptr;
 	QPushButton *rescanButton = nullptr;
 	QLabel      *authStatusLabel = nullptr;
 	QPushButton *authButton      = nullptr;
@@ -39,7 +41,6 @@ private:
 
 private slots:
 	void onAddGameClicked();
-	void onRemoveGameClicked();
 	void onClearTableClicked();
 	void onAutomaticScanFinished(const QList<std::tuple<QString, QString, QString>> &foundGames);
 	void onAuthenticationFinished(bool success, const QString &username);

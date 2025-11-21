@@ -50,6 +50,12 @@ bool TwitchChatBot::updateCategory(const QString &gameName)
 {
 	blog(LOG_INFO, "[GameDetector/ChatBot] Changing category to: %s", gameName.toStdString().c_str());
 
+	if (lastSetCategoryName == gameName) {
+		blog(LOG_INFO, "[GameDetector/ChatBot] Category '%s' is already set. Skipping update.", gameName.toStdString().c_str());
+		// emit categoryUpdateFinished(true, gameName); // Notifica a UI que "deu certo"
+		return true;
+	}
+
 	// --------------------------
 	// 1. Pede ao AuthManager o gameID
 	// --------------------------
@@ -83,6 +89,7 @@ bool TwitchChatBot::updateCategory(const QString &gameName)
 		connect(updateWatcher, &QFutureWatcher<bool>::finished, this, [this, updateWatcher, gameName]() {
 			if (updateWatcher->result()) {
 				blog(LOG_INFO, "[GameDetector/ChatBot] Category updated successfully to '%s'.", gameName.toStdString().c_str());
+				this->lastSetCategoryName = gameName; // Armazena a última categoria definida com sucesso
 				emit categoryUpdateFinished(true, gameName);
 			} else {
 				blog(LOG_ERROR, "[GameDetector/ChatBot] Failed to update category for '%s'.", gameName.toStdString().c_str());

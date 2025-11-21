@@ -123,7 +123,7 @@ void TwitchAuthManager::onNewConnection()
 			QString successPage = QString(
 				"<!DOCTYPE html><html><head><title>%1</title></head><body style='font-family: sans-serif; background-color: #f4f4f4; text-align: center; padding-top: 50px;'>"
 				"%2%3"
-				"</body></html>")
+				"<script>setTimeout(function() { window.close(); }, 3000);</script></body></html>")
 				.arg(obs_module_text("Auth.Page.Title"), obs_module_text("Auth.Page.Success.Title"), obs_module_text("Auth.Page.Success.Message"));
 
 			// Responde ao navegador e fecha o servidor e o socket

@@ -54,15 +54,21 @@ void GameDetector::startProcessMonitoring()
 	}
 }
 
-void GameDetector::rescanForGames()
+void GameDetector::rescanForGames(bool scanSteam, bool scanEpic, bool scanGog)
 {
 	if (gameDbWatcher->isRunning()) {
 		blog(LOG_INFO, "[GameDetector] Game scan is already in progress.");
 		return;
 	}
+
+	this->tempScanSteam = scanSteam;
+	this->tempScanEpic = scanEpic;
+	this->tempScanGog = scanGog;
+
 	// Executes game search in a separate thread to avoid blocking the OBS UI
 	blog(LOG_INFO, "[GameDetector] Starting background game scan...");
-	QFuture<QList<std::tuple<QString, QString, QString>>> future = QtConcurrent::run([this]() { return populateGameExecutables(); });
+	QFuture<QList<std::tuple<QString, QString, QString>>> future =
+		QtConcurrent::run([this]() { return populateGameExecutables(); });
 	gameDbWatcher->setFuture(future);
 }
 
@@ -101,7 +107,7 @@ void GameDetector::stopScanning()
 // Lista de substrings para ignorar. Se qualquer parte do nome do executável
 // corresponder a uma dessas strings, ele será ignorado.
 const QStringList ignoreSubstrings = {
-	"launcher.exe", "7z", "presentmon", "dxsetup", "errorreporter", "crashpad", "buildpatchtool", "redmod", "dotnet", "bepinex",
+	"7z", "presentmon", "dxsetup", "errorreporter", "crashpad", "buildpatchtool", "redmod", "dotnet", "bepinex",
 	"vcredist", "vc_redist", "redist", "prereq", "crashreport", "swarm", "unrealpak", "bink2", "bootstrap",
 	"shadercompile", "epicwebhelper", "svn", "python", "dumpmini", "datacollector", "testhost", "unrealgame",
 	"shipping" // "Shipping.exe" é muito comum em jogos Unreal, mas o nome do jogo vem antes.
@@ -152,79 +158,44 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 	knownGameExes.clear();
 	gameNameMap.clear();
 
-	// ==== STEAM ====
-	QSettings steamSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam", QSettings::NativeFormat);
-	QString steamPath = steamSettings.value("InstallPath").toString();
-	if (!steamPath.isEmpty()) {
-		QString libraryFile = steamPath + "/steamapps/libraryfolders.vdf";
-		QFile f(libraryFile);
-		QStringList libraryPaths;
-		libraryPaths << steamPath + "/steamapps/common";
+	if (this->tempScanSteam) {
+		// ==== STEAM ====
+		QSettings steamSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Valve\\Steam", QSettings::NativeFormat);
+		QString steamPath = steamSettings.value("InstallPath").toString();
+		if (!steamPath.isEmpty()) {
+			QString libraryFile = steamPath + "/steamapps/libraryfolders.vdf";
+			QFile f(libraryFile);
+			QStringList libraryPaths;
+			libraryPaths << steamPath + "/steamapps/common";
 
-		if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-			QByteArray data = f.readAll();
-			f.close();
-			QRegularExpression re("\"path\"\\s+\"([^\"]+)\"");
-			auto matches = re.globalMatch(QString::fromUtf8(data));
-			while (matches.hasNext()) {
-				QString lib = matches.next().captured(1);
-				libraryPaths << lib + "/steamapps/common";
+			if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+				QByteArray data = f.readAll();
+				f.close();
+				QRegularExpression re("\"path\"\\s+\"([^\"]+)\"");
+				auto matches = re.globalMatch(QString::fromUtf8(data));
+				while (matches.hasNext()) {
+					QString lib = matches.next().captured(1);
+					libraryPaths << lib + "/steamapps/common";
+				}
 			}
-		}
 
-		// Percorre cada biblioteca
-		for (const QString &library : libraryPaths) {
-			if (!QDir(library).exists())
-				continue;
+			// Percorre cada biblioteca
+			for (const QString &library : libraryPaths) {
+				if (!QDir(library).exists())
+					continue;
 
-			QDirIterator it(library, QDir::Dirs | QDir::NoDotAndDotDot);
-			while (it.hasNext()) {
-				QString gameFolder = it.next();
+				QDirIterator it(library, QDir::Dirs | QDir::NoDotAndDotDot);
+				while (it.hasNext()) {
+					QString gameFolder = it.next();
 
-				// Procura o executável principal na pasta do jogo
-				QString exePath;
-				QString exeName;
+					// Procura o executável principal na pasta do jogo
+					QString exePath;
+					QString exeName;
 
-				// 1. Busca primeiro na pasta raiz do jogo
-				QDirIterator rootIt(gameFolder, QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
-				while (rootIt.hasNext()) {
-					QString candidate = rootIt.next();
-					QString candidateName = QFileInfo(candidate).fileName();
-					if (!isExeIgnored(candidateName)) {
-						exePath = candidate;
-						exeName = candidateName;
-						break;
-					}
-				}
-
-				// 2. Se não encontrou, busca em subpastas comuns de binários
-				if (exePath.isEmpty()) {
-					const QStringList commonBinarySubfolders = {"bin", "Binaries/Win64", "Binaries/Win32", "x64", "x86"};
-					for (const QString &subfolder : commonBinarySubfolders) {
-						QDir subDir(gameFolder + "/" + subfolder);
-						if (!subDir.exists()) continue;
-
-						QDirIterator subIt(subDir.absolutePath(), QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
-						while (subIt.hasNext()) {
-							QString candidate = subIt.next();
-							QString candidateName = QFileInfo(candidate).fileName();
-							if (!isExeIgnored(candidateName)) {
-								exePath = candidate;
-								exeName = candidateName;
-								break;
-							}
-						}
-						if (!exePath.isEmpty()) {
-							break;
-						}
-					}
-				}
-
-				// 3. Como último recurso, faz a busca recursiva (lógica antiga)
-				if (exePath.isEmpty()) {
-					QDirIterator recursiveIt(gameFolder, QStringList() << "*.exe", QDir::Files, QDirIterator::Subdirectories);
-					while (recursiveIt.hasNext()) {
-						QString candidate = recursiveIt.next();
+					// 1. Busca primeiro na pasta raiz do jogo
+					QDirIterator rootIt(gameFolder, QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
+					while (rootIt.hasNext()) {
+						QString candidate = rootIt.next();
 						QString candidateName = QFileInfo(candidate).fileName();
 						if (!isExeIgnored(candidateName)) {
 							exePath = candidate;
@@ -232,111 +203,187 @@ QList<std::tuple<QString, QString, QString>> GameDetector::populateGameExecutabl
 							break;
 						}
 					}
-				}
 
-				if (exePath.isEmpty() || exeName.isEmpty())
-					continue;
+					// 2. Se não encontrou, busca em subpastas comuns de binários
+					if (exePath.isEmpty()) {
+						const QStringList commonBinarySubfolders = {"bin", "Binaries/Win64", "Binaries/Win32", "x64", "x86"};
+						for (const QString &subfolder : commonBinarySubfolders) {
+							QDir subDir(gameFolder + "/" + subfolder);
+							if (!subDir.exists()) continue;
 
-				// Sobe na árvore de diretórios para encontrar o nome real do jogo,
-				// ignorando pastas de binários.
-				QDir gameDir = QFileInfo(exePath).dir();
-				const QSet<QString> binaryFolderNames = {"bin", "binaries", "win64", "win_x64", "x64", "shipping"};
-				while(binaryFolderNames.contains(gameDir.dirName().toLower())) {
-					if (!gameDir.cdUp()) break;
-				}
-				QString friendlyName = gameDir.dirName();
+							QDirIterator subIt(subDir.absolutePath(), QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
+							while (subIt.hasNext()) {
+								QString candidate = subIt.next();
+								QString candidateName = QFileInfo(candidate).fileName();
+								if (!isExeIgnored(candidateName)) {
+									exePath = candidate;
+									exeName = candidateName;
+									break;
+								}
+							}
+							if (!exePath.isEmpty()) {
+								break;
+							}
+						}
+					}
 
-				if (!knownGameExes.contains(exeName)) {
-					foundGames.append({friendlyName, exeName, exePath});
+					// 3. Como último recurso, faz a busca recursiva (lógica antiga)
+					if (exePath.isEmpty()) {
+						QDirIterator recursiveIt(gameFolder, QStringList() << "*.exe", QDir::Files, QDirIterator::Subdirectories);
+						while (recursiveIt.hasNext()) {
+							QString candidate = recursiveIt.next();
+							QString candidateName = QFileInfo(candidate).fileName();
+							if (!isExeIgnored(candidateName)) {
+								exePath = candidate;
+								exeName = candidateName;
+								break;
+							}
+						}
+					}
 
-					knownGameExes.insert(exeName);
-					gameNameMap.insert(exeName, friendlyName);
+					if (exePath.isEmpty() || exeName.isEmpty())
+						continue;
 
-					emit gameFoundDuringScan(foundGames.size());
+					// Sobe na árvore de diretórios para encontrar o nome real do jogo,
+					// ignorando pastas de binários.
+					QDir gameDir = QFileInfo(exePath).dir();
+					const QSet<QString> binaryFolderNames = {"bin", "binaries", "win64", "win_x64", "x64", "shipping"};
+					while(binaryFolderNames.contains(gameDir.dirName().toLower())) {
+						if (!gameDir.cdUp()) break;
+					}
+					QString friendlyName = gameDir.dirName();
+
+					if (!knownGameExes.contains(exeName)) {
+						foundGames.append({friendlyName, exeName, exePath});
+
+						knownGameExes.insert(exeName);
+						gameNameMap.insert(exeName, friendlyName);
+
+						emit gameFoundDuringScan(foundGames.size());
+					}
 				}
 			}
 		}
 	}
 
-	// ==== EPIC ====
-	QString epicFilePath = "C:/ProgramData/Epic/UnrealEngineLauncher/LauncherInstalled.dat";
-	QFile epicFile(epicFilePath);
-	if (epicFile.exists() && epicFile.open(QIODevice::ReadOnly)) {
-		QJsonDocument doc = QJsonDocument::fromJson(epicFile.readAll());
-		epicFile.close();
+	if (this->tempScanEpic) {
+		// ==== EPIC ====
+		bool foundViaRegistry = false;
+		QSettings epicSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher", QSettings::NativeFormat);
+		QString appDataPath = epicSettings.value("AppDataPath").toString();
 
-		if (doc.isObject()) {
-			QJsonArray arr = doc.object()["InstallationList"].toArray();
-			for (const QJsonValue &v : arr) {
-				QString installPath = v.toObject()["InstallLocation"].toString();
-				QString friendlyName = v.toObject()["DisplayName"].toString();
+		if (!appDataPath.isEmpty()) {
+			QString manifestsDir = appDataPath + "Manifests";
+			QDirIterator it(manifestsDir, QStringList() << "*.item", QDir::Files);
 
-				if (installPath.isEmpty() || !QDir(installPath).exists())
-					continue;
+			while (it.hasNext()) {
+				QString manifestPath = it.next();
+				QFile manifestFile(manifestPath);
+				if (manifestFile.open(QIODevice::ReadOnly)) {
+					QJsonDocument doc = QJsonDocument::fromJson(manifestFile.readAll());
+					manifestFile.close();
 
-				// Se o nome do JSON estiver vazio, usa o nome da pasta como fallback
-				if (friendlyName.isEmpty()) {
-					friendlyName = QFileInfo(installPath).fileName();
-				}
+					if (doc.isObject()) {
+						QJsonObject obj = doc.object();
+						QString friendlyName = obj["DisplayName"].toString();
+						QString exeName = obj["LaunchExecutable"].toString();
+						QString installPath = obj["InstallLocation"].toString();
+						QString exePath = QDir::toNativeSeparators(installPath + "/" + exeName);
 
-				QString exePath;
-				QString exeName;
-
-				// 1. Busca primeiro na pasta raiz do jogo
-				QDirIterator rootIt(installPath, QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
-				while (rootIt.hasNext()) {
-					QString candidate = rootIt.next();
-					QString candidateName = QFileInfo(candidate).fileName();
-					if (!isExeIgnored(candidateName)) {
-						exePath = candidate;
-						exeName = candidateName;
-						break;
+						if (friendlyName.isEmpty() || exeName.isEmpty() || !QFileInfo::exists(exePath) || isExeIgnored(exeName)) {
+							continue;
+						}
+						if (!knownGameExes.contains(QFileInfo(exePath).fileName())) {
+							foundGames.append({friendlyName, QFileInfo(exePath).fileName(), exePath});
+							knownGameExes.insert(QFileInfo(exePath).fileName());
+							gameNameMap.insert(QFileInfo(exePath).fileName(), friendlyName);
+							emit gameFoundDuringScan(foundGames.size());
+							foundViaRegistry = true;
+						}
 					}
 				}
+			}
+		}
+		// Fallback para o método antigo se o registro falhar
+		if (!foundViaRegistry) {
+			QString epicFilePath = "C:/ProgramData/Epic/UnrealEngineLauncher/LauncherInstalled.dat";
+			QFile epicFile(epicFilePath);
+			if (epicFile.exists() && epicFile.open(QIODevice::ReadOnly)) {
+				QJsonDocument doc = QJsonDocument::fromJson(epicFile.readAll());
+				epicFile.close();
 
-				// 2. Se não encontrou, busca em subpastas comuns de binários
-				if (exePath.isEmpty()) {
-					const QStringList commonBinarySubfolders = {"bin", "Binaries/Win64", "Binaries/Win32", "x64", "x86", "Shipping"};
-					for (const QString &subfolder : commonBinarySubfolders) {
-						QDir subDir(installPath + "/" + subfolder);
-						if (!subDir.exists()) continue;
+				if (doc.isObject()) {
+					QJsonArray arr = doc.object()["InstallationList"].toArray();
+					for (const QJsonValue &v : arr) {
+						QString installPath = v.toObject()["InstallLocation"].toString();
+						QString friendlyName = v.toObject()["DisplayName"].toString();
 
-						QDirIterator subIt(subDir.absolutePath(), QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
-						while (subIt.hasNext()) {
-							QString candidate = subIt.next();
-							QString candidateName = QFileInfo(candidate).fileName();
-							if (!isExeIgnored(candidateName)) {
-								exePath = candidate;
-								exeName = candidateName;
-								break;
+						if (installPath.isEmpty() || !QDir(installPath).exists()) continue;
+						if (friendlyName.isEmpty()) friendlyName = QFileInfo(installPath).fileName();
+
+						QString exePath;
+						QString exeName;
+
+						// Lógica de busca de executável (mantida como fallback)
+						const QStringList commonBinarySubfolders = {"", "bin", "Binaries/Win64", "Binaries/Win32", "x64", "x86", "Shipping"};
+						for (const QString &subfolder : commonBinarySubfolders) {
+							QDir subDir(installPath + (subfolder.isEmpty() ? "" : "/" + subfolder));
+							if (!subDir.exists()) continue;
+
+							QDirIterator subIt(subDir.absolutePath(), QStringList() << "*.exe", QDir::Files, QDirIterator::NoIteratorFlags);
+							while (subIt.hasNext()) {
+								QString candidate = subIt.next();
+								QString candidateName = QFileInfo(candidate).fileName();
+								if (!isExeIgnored(candidateName)) {
+									exePath = candidate;
+									exeName = candidateName;
+									break;
+								}
 							}
+							if (!exePath.isEmpty()) break;
 						}
-						if (!exePath.isEmpty()) break;
-					}
-				}
 
-				// 3. Como último recurso, faz a busca recursiva
-				if (exePath.isEmpty()) {
-					QDirIterator recursiveIt(installPath, QStringList() << "*.exe", QDir::Files, QDirIterator::Subdirectories);
-					while (recursiveIt.hasNext()) {
-						QString candidate = recursiveIt.next();
-						QString candidateName = QFileInfo(candidate).fileName();
-						if (!isExeIgnored(candidateName)) {
-							exePath = candidate;
-							exeName = candidateName;
-							break;
+						if (!exeName.isEmpty() && !knownGameExes.contains(exeName)) {
+							foundGames.append({friendlyName, exeName, exePath});
+							knownGameExes.insert(exeName);
+							gameNameMap.insert(exeName, friendlyName);
+							emit gameFoundDuringScan(foundGames.size());
 						}
 					}
 				}
+			}
+		}
+	}
 
-				if (!exeName.isEmpty() && !knownGameExes.contains(exeName)) {
-					foundGames.append({friendlyName, exeName, exePath});
+	if (this->tempScanGog) {
+		// ==== GOG Galaxy ====
+		QSettings gogSettings("HKEY_LOCAL_MACHINE\\SOFTWARE\\WOW6432Node\\GOG.com\\Games", QSettings::NativeFormat);
 
-					knownGameExes.insert(exeName);
-					gameNameMap.insert(exeName, friendlyName);
+		// As subchaves são os IDs dos jogos
+		QStringList gameIds = gogSettings.childGroups();
 
-					emit gameFoundDuringScan(foundGames.size());
-				}
+		for (const QString &gameId : gameIds) {
+			gogSettings.beginGroup(gameId);
+
+			QString friendlyName = gogSettings.value("gameName").toString();
+			QString exePath = gogSettings.value("exeFile").toString(); // GOG nos dá o caminho completo!
+			QString exeName = QFileInfo(exePath).fileName();
+
+			gogSettings.endGroup();
+
+			// Validação
+			if (exePath.isEmpty() || !QFileInfo::exists(exePath) || isExeIgnored(exeName)) {
+				continue;
+			}
+
+			// Adiciona se ainda não foi encontrado
+			if (!knownGameExes.contains(exeName)) {
+				foundGames.append({friendlyName, exeName, exePath});
+
+				knownGameExes.insert(exeName);
+				gameNameMap.insert(exeName, friendlyName);
+
+				emit gameFoundDuringScan(foundGames.size());
 			}
 		}
 	}
